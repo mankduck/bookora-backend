@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\Staff\UpdateStaffRequest;
 use App\Models\Role;
 use App\Models\StaffProfile;
 use App\Models\User;
+use App\Services\AccountStatusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,11 @@ use Illuminate\Support\Facades\Hash;
 
 class StaffController extends Controller
 {
+
+    public function __construct(
+        private readonly AccountStatusService $accountStatusService
+    ) {
+    }
     public function index(Request $request): JsonResponse
     {
         $query = StaffProfile::query()
@@ -54,11 +60,11 @@ class StaffController extends Controller
 
             $query->whereHas(
                 'services',
-                fn ($serviceQuery) =>
-                    $serviceQuery->where(
-                        'services.id',
-                        $serviceId
-                    )
+                fn($serviceQuery) =>
+                $serviceQuery->where(
+                    'services.id',
+                    $serviceId
+                )
             );
         }
 
@@ -160,6 +166,18 @@ class StaffController extends Controller
     ): JsonResponse {
         DB::transaction(function () use ($request, $staff) {
             $data = $request->validated();
+
+            if (
+                $staff->status === 'active'
+                &&
+                $data['status'] === 'inactive'
+            ) {
+                $this
+                    ->accountStatusService
+                    ->validateStaffCanDeactivate(
+                        $staff
+                    );
+            }
 
             $userData = [
                 'name' => $data['name'],

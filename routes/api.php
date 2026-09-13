@@ -2,17 +2,20 @@
 
 use App\Http\Controllers\Api\Admin\AdminBookingCreateController;
 use App\Http\Controllers\Api\Admin\BookingController as AdminBookingController;
+use App\Http\Controllers\Api\Admin\CustomerController as AdminCustomerController;
 use App\Http\Controllers\Api\Admin\PaymentProofController as AdminPaymentProofController;
 use App\Http\Controllers\Api\Admin\ServiceCategoryController;
 use App\Http\Controllers\Api\Admin\ServiceController;
 use App\Http\Controllers\Api\Admin\ServiceVariantController;
 use App\Http\Controllers\Api\Admin\StaffController;
+use App\Http\Controllers\Api\Admin\CouponController as AdminCouponController;
 
 use App\Http\Controllers\Api\Auth\AuthController;
 
 use App\Http\Controllers\Api\Customer\BookingController as CustomerBookingController;
 use App\Http\Controllers\Api\Customer\PaymentProofController as CustomerPaymentProofController;
 use App\Http\Controllers\Api\Customer\ProfileController as CustomerProfileController;
+use App\Http\Controllers\Api\PaymentProofImageController;
 
 use App\Http\Controllers\Api\Public\AvailabilityController;
 use App\Http\Controllers\Api\Public\BookingController as PublicBookingController;
@@ -22,12 +25,6 @@ use App\Http\Controllers\Api\Public\ServiceCatalogController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
-
-    /*
-    |--------------------------------------------------------------------------
-    | PUBLIC
-    |--------------------------------------------------------------------------
-    */
 
     Route::prefix('public')
         ->group(function () {
@@ -65,22 +62,10 @@ Route::prefix('v1')->group(function () {
             );
         });
 
-    /*
-    |--------------------------------------------------------------------------
-    | AVAILABILITY
-    |--------------------------------------------------------------------------
-    */
-
     Route::get(
         '/availability',
         AvailabilityController::class
     );
-
-    /*
-    |--------------------------------------------------------------------------
-    | AUTH
-    |--------------------------------------------------------------------------
-    */
 
     Route::prefix('auth')
         ->group(function () {
@@ -124,11 +109,11 @@ Route::prefix('v1')->group(function () {
                 });
         });
 
-    /*
-    |--------------------------------------------------------------------------
-    | ADMIN
-    |--------------------------------------------------------------------------
-    */
+    Route::middleware('auth:sanctum')
+    ->get(
+        '/payment-proofs/{proof}/image',
+        PaymentProofImageController::class
+    );
 
     Route::middleware([
         'auth:sanctum',
@@ -137,22 +122,10 @@ Route::prefix('v1')->group(function () {
         ->prefix('admin')
         ->group(function () {
 
-            /*
-            |--------------------------------------------------------------------------
-            | SERVICE CATEGORIES
-            |--------------------------------------------------------------------------
-            */
-
             Route::apiResource(
                 'service-categories',
                 ServiceCategoryController::class
             );
-
-            /*
-            |--------------------------------------------------------------------------
-            | SERVICES
-            |--------------------------------------------------------------------------
-            */
 
             Route::apiResource(
                 'services',
@@ -183,22 +156,47 @@ Route::prefix('v1')->group(function () {
                 ]
             );
 
-            /*
-            |--------------------------------------------------------------------------
-            | STAFF
-            |--------------------------------------------------------------------------
-            */
-
             Route::apiResource(
                 'staff',
                 StaffController::class
             );
 
-            /*
-            |--------------------------------------------------------------------------
-            | BOOKINGS
-            |--------------------------------------------------------------------------
-            */
+            Route::apiResource(
+                'coupons',
+                AdminCouponController::class
+            );
+
+            Route::get(
+                '/customers',
+                [
+                    AdminCustomerController::class,
+                    'index',
+                ]
+            );
+
+            Route::post(
+                '/customers',
+                [
+                    AdminCustomerController::class,
+                    'store',
+                ]
+            );
+
+            Route::get(
+                '/customers/{user}',
+                [
+                    AdminCustomerController::class,
+                    'show',
+                ]
+            );
+
+            Route::put(
+                '/customers/{user}',
+                [
+                    AdminCustomerController::class,
+                    'update',
+                ]
+            );
 
             Route::get(
                 '/bookings',
@@ -208,12 +206,6 @@ Route::prefix('v1')->group(function () {
                 ]
             );
 
-            /*
-             * Admin tự tạo booking.
-             *
-             * Phải đặt route POST trước route
-             * /bookings/{booking} cho dễ đọc.
-             */
             Route::post(
                 '/bookings',
                 [
@@ -262,17 +254,19 @@ Route::prefix('v1')->group(function () {
                 ]
             );
 
-            /*
-            |--------------------------------------------------------------------------
-            | DEPOSIT / PAYMENT PROOF
-            |--------------------------------------------------------------------------
-            */
-
             Route::post(
                 '/bookings/{booking}/mark-deposit-paid',
                 [
                     AdminPaymentProofController::class,
                     'markDepositPaid',
+                ]
+            );
+
+            Route::post(
+                '/bookings/{booking}/mark-paid',
+                [
+                    AdminPaymentProofController::class,
+                    'markPaid',
                 ]
             );
 
@@ -293,12 +287,6 @@ Route::prefix('v1')->group(function () {
             );
         });
 
-    /*
-    |--------------------------------------------------------------------------
-    | STAFF AREA
-    |--------------------------------------------------------------------------
-    */
-
     Route::middleware([
         'auth:sanctum',
         'role:staff',
@@ -308,24 +296,12 @@ Route::prefix('v1')->group(function () {
             //
         });
 
-    /*
-    |--------------------------------------------------------------------------
-    | CUSTOMER
-    |--------------------------------------------------------------------------
-    */
-
     Route::middleware([
         'auth:sanctum',
         'role:customer',
     ])
         ->prefix('customer')
         ->group(function () {
-
-            /*
-            |--------------------------------------------------------------------------
-            | PROFILE
-            |--------------------------------------------------------------------------
-            */
 
             Route::get(
                 '/profile',
@@ -342,12 +318,6 @@ Route::prefix('v1')->group(function () {
                     'update',
                 ]
             );
-
-            /*
-            |--------------------------------------------------------------------------
-            | BOOKINGS
-            |--------------------------------------------------------------------------
-            */
 
             Route::post(
                 '/bookings',
@@ -372,12 +342,6 @@ Route::prefix('v1')->group(function () {
                     'show',
                 ]
             );
-
-            /*
-            |--------------------------------------------------------------------------
-            | PAYMENT PROOF
-            |--------------------------------------------------------------------------
-            */
 
             Route::post(
                 '/bookings/{booking}/payment-proof',

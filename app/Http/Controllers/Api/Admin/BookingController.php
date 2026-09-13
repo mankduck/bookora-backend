@@ -17,8 +17,7 @@ class BookingController extends Controller
     public function index(
         Request $request,
         PaymentProofService $paymentService
-    ): JsonResponse
-    {
+    ): JsonResponse {
         $query = Booking::query()
             ->with([
                 'items',
@@ -122,11 +121,7 @@ class BookingController extends Controller
         $bookings
             ->getCollection()
             ->transform(
-                function (
-                    Booking $booking
-                ) use (
-                    $paymentService
-                ) {
+                function (Booking $booking) use ($paymentService) {
                     return $paymentService
                         ->attachPaymentData(
                             $booking,
@@ -252,10 +247,7 @@ class BookingController extends Controller
         }
 
         DB::transaction(
-            function () use (
-                $booking,
-                $needsDeposit
-            ) {
+            function () use ($booking, $needsDeposit) {
                 $fromStatus =
                     $booking->status;
 
@@ -273,26 +265,26 @@ class BookingController extends Controller
                 DB::table(
                     'booking_status_histories'
                 )->insert([
-                    'booking_id' =>
-                        $booking->id,
+                            'booking_id' =>
+                                $booking->id,
 
-                    'from_status' =>
-                        $fromStatus,
+                            'from_status' =>
+                                $fromStatus,
 
-                    'to_status' =>
-                        'confirmed',
+                            'to_status' =>
+                                'confirmed',
 
-                    'changed_by' =>
-                        auth()->id(),
+                            'changed_by' =>
+                                auth()->id(),
 
-                    'note' =>
-                        $needsDeposit
-                            ? 'Admin xác nhận booking khi tiền cọc chưa hoàn tất.'
-                            : 'Admin xác nhận booking.',
+                            'note' =>
+                                $needsDeposit
+                                ? 'Admin xác nhận booking khi tiền cọc chưa hoàn tất.'
+                                : 'Admin xác nhận booking.',
 
-                    'created_at' =>
-                        now(),
-                ]);
+                            'created_at' =>
+                                now(),
+                        ]);
             }
         );
 
@@ -353,17 +345,19 @@ class BookingController extends Controller
             'pending' => [
                 'cancelled',
             ],
+
             'confirmed' => [
                 'in_progress',
-                'completed',
                 'cancelled',
                 'no_show',
             ],
+
             'in_progress' => [
                 'completed',
                 'cancelled',
                 'no_show',
             ],
+
             'completed' => [],
             'cancelled' => [],
             'no_show' => [],
@@ -383,13 +377,49 @@ class BookingController extends Controller
             ], 422);
         }
 
-        DB::transaction(
-            function () use (
-                $booking,
-                $current,
-                $target,
-                $data
+        if (
+            $current === 'in_progress'
+            &&
+            $booking->payment_status === 'paid'
+            &&
+            $target !== 'completed'
+        ) {
+            return response()->json([
+                'success' => false,
+
+                'message' =>
+                    'Booking đã thanh toán đầy đủ. Trạng thái hợp lệ tiếp theo duy nhất là Hoàn thành.',
+            ], 422);
+        }
+
+        if ($target === 'completed') {
+            $paymentService->syncBookingPaymentStatus(
+                $booking
+            );
+
+            $booking->refresh();
+
+            $summary = $paymentService->summary(
+                $booking
+            );
+
+            if (
+                $booking->payment_status !== 'paid' ||
+                (float) $summary['remaining_amount'] > 0
             ) {
+                return response()->json([
+                    'success' => false,
+
+                    'message' =>
+                        'Không thể hoàn thành booking khi khách hàng chưa thanh toán đủ. Vui lòng xác nhận thanh toán trước.',
+
+                    'payment' => $summary,
+                ], 422);
+            }
+        }
+
+        DB::transaction(
+            function () use ($booking, $current, $target, $data) {
                 $changes = [
                     'status' => $target,
                 ];
@@ -409,20 +439,20 @@ class BookingController extends Controller
                 DB::table(
                     'booking_status_histories'
                 )->insert([
-                    'booking_id' =>
-                        $booking->id,
-                    'from_status' =>
-                        $current,
-                    'to_status' =>
-                        $target,
-                    'changed_by' =>
-                        auth()->id(),
-                    'note' =>
-                        $data['reason'] ??
-                        'Admin cập nhật trạng thái booking.',
-                    'created_at' =>
-                        now(),
-                ]);
+                            'booking_id' =>
+                                $booking->id,
+                            'from_status' =>
+                                $current,
+                            'to_status' =>
+                                $target,
+                            'changed_by' =>
+                                auth()->id(),
+                            'note' =>
+                                $data['reason'] ??
+                                'Admin cập nhật trạng thái booking.',
+                            'created_at' =>
+                                now(),
+                        ]);
             }
         );
 
@@ -496,11 +526,11 @@ class BookingController extends Controller
             ->where('is_bookable', true)
             ->whereHas(
                 'user',
-                fn ($query) =>
-                    $query->where(
-                        'status',
-                        'active'
-                    )
+                fn($query) =>
+                $query->where(
+                    'status',
+                    'active'
+                )
             )
             ->where(
                 function ($query) use ($serviceIds) {
@@ -526,11 +556,11 @@ class BookingController extends Controller
             ->orderBy('id')
             ->get()
             ->filter(
-                fn (StaffProfile $staff) =>
-                    $this->isStaffAvailableForBooking(
-                        $staff,
-                        $booking
-                    )
+                fn(StaffProfile $staff) =>
+                $this->isStaffAvailableForBooking(
+                    $staff,
+                    $booking
+                )
             )
             ->values()
             ->map(
@@ -555,7 +585,7 @@ class BookingController extends Controller
                         'is_primary' =>
                             (bool) (
                                 $currentAssignment
-                                    ?->is_primary ??
+                                        ?->is_primary ??
                                 false
                             ),
                         'user' => [
@@ -571,7 +601,7 @@ class BookingController extends Controller
                         'services' =>
                             $staff->services
                                 ->map(
-                                    fn ($service) => [
+                                    fn($service) => [
                                         'id' =>
                                             $service->id,
                                         'name' =>
@@ -606,7 +636,7 @@ class BookingController extends Controller
         if ($booking->status != 'confirmed') {
             return response()->json([
                 'success' => false,
-                'message' => 
+                'message' =>
                     'Không thể đổi phân công Photo sau khi đã xác nhận!',
             ], 422);
         }
@@ -728,30 +758,30 @@ class BookingController extends Controller
                     DB::table(
                         'booking_staff'
                     )->insert([
-                        'booking_id' =>
-                            $booking->id,
+                                'booking_id' =>
+                                    $booking->id,
 
-                        'staff_id' =>
-                            $staff->id,
+                                'staff_id' =>
+                                    $staff->id,
 
-                        'role' =>
-                            'primary',
+                                'role' =>
+                                    'primary',
 
-                        'is_primary' =>
-                            true,
+                                'is_primary' =>
+                                    true,
 
-                        'assigned_by' =>
-                            auth()->id(),
+                                'assigned_by' =>
+                                    auth()->id(),
 
-                        'assigned_at' =>
-                            $now,
+                                'assigned_at' =>
+                                    $now,
 
-                        'created_at' =>
-                            $now,
+                                'created_at' =>
+                                    $now,
 
-                        'updated_at' =>
-                            $now,
-                    ]);
+                                'updated_at' =>
+                                    $now,
+                            ]);
                 }
             }
         );
@@ -933,10 +963,7 @@ class BookingController extends Controller
                 )
                 ->whereHas(
                     'booking',
-                    function ($query) use (
-                        $start,
-                        $end
-                    ) {
+                    function ($query) use ($start, $end) {
                         $query
                             ->whereIn(
                                 'status',

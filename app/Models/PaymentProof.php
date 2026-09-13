@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
 
 class PaymentProof extends Model
 {
@@ -30,7 +29,6 @@ class PaymentProof extends Model
     protected $appends = [
         'image_url',
         'is_manual',
-        'manual_method',
     ];
 
     public function booking(): BelongsTo
@@ -56,25 +54,6 @@ class PaymentProof extends Model
         );
     }
 
-    public function getImageUrlAttribute(): ?string
-    {
-        if (
-            !$this->image_path ||
-            str_starts_with(
-                $this->image_path,
-                'manual://'
-            )
-        ) {
-            return null;
-        }
-
-        return url(
-            Storage::url(
-                $this->image_path
-            )
-        );
-    }
-
     public function getIsManualAttribute(): bool
     {
         return str_starts_with(
@@ -83,16 +62,17 @@ class PaymentProof extends Model
         );
     }
 
-    public function getManualMethodAttribute(): ?string
+    public function getImageUrlAttribute(): ?string
     {
-        if (!$this->is_manual) {
+        if (
+            !$this->image_path ||
+            $this->is_manual
+        ) {
             return null;
         }
 
-        return str_replace(
-            'manual://',
-            '',
-            (string) $this->image_path
+        return url(
+            "/api/v1/payment-proofs/{$this->id}/image"
         );
     }
 }
