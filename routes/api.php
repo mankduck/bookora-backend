@@ -9,12 +9,21 @@ use App\Http\Controllers\Api\Admin\ServiceController;
 use App\Http\Controllers\Api\Admin\ServiceVariantController;
 use App\Http\Controllers\Api\Admin\StaffController;
 use App\Http\Controllers\Api\Admin\CouponController as AdminCouponController;
+use App\Http\Controllers\Api\Admin\DashboardController;
+use App\Http\Controllers\Api\Admin\HomepageModuleController;
+use App\Http\Controllers\Api\Admin\AdminActivityController;
+use App\Http\Controllers\Api\Admin\MediaController;
+use App\Http\Middleware\AdminActivityMiddleware;
+use App\Http\Controllers\Api\Admin\PostController as AdminPostController;
+use App\Http\Controllers\Api\Admin\ReviewController as AdminReviewController;
+use App\Http\Controllers\Api\Admin\SettingsController as AdminSettingsController;
 
 use App\Http\Controllers\Api\Auth\AuthController;
 
 use App\Http\Controllers\Api\Customer\BookingController as CustomerBookingController;
 use App\Http\Controllers\Api\Customer\PaymentProofController as CustomerPaymentProofController;
 use App\Http\Controllers\Api\Customer\ProfileController as CustomerProfileController;
+use App\Http\Controllers\Api\Customer\ReviewController as CustomerReviewController;
 use App\Http\Controllers\Api\PaymentProofImageController;
 use App\Http\Controllers\Api\NotificationController;
 
@@ -22,6 +31,8 @@ use App\Http\Controllers\Api\Public\AvailabilityController;
 use App\Http\Controllers\Api\Public\BookingController as PublicBookingController;
 use App\Http\Controllers\Api\Public\CouponController;
 use App\Http\Controllers\Api\Public\ServiceCatalogController;
+use App\Http\Controllers\Api\Public\PostController as PublicPostController;
+use App\Http\Controllers\Api\Public\SiteController as PublicSiteController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -61,6 +72,12 @@ Route::prefix('v1')->group(function () {
                     'check',
                 ]
             );
+
+            Route::get('/site-config', [PublicSiteController::class, 'config']);
+            Route::get('/home-data', [PublicSiteController::class, 'homeData']);
+            Route::get('/staff/{staff}/reviews', [PublicSiteController::class, 'staffReviews']);
+            Route::get('/posts', [PublicPostController::class, 'index']);
+            Route::get('/posts/{slug}', [PublicPostController::class, 'show']);
         });
 
     Route::get(
@@ -125,9 +142,26 @@ Route::prefix('v1')->group(function () {
     Route::middleware([
         'auth:sanctum',
         'role:admin',
+        AdminActivityMiddleware::class,
     ])
         ->prefix('admin')
         ->group(function () {
+
+
+            Route::get('/dashboard', DashboardController::class);
+            Route::get('/activity-logs', [AdminActivityController::class, 'index']);
+            Route::post('/media/image', [MediaController::class, 'image']);
+            Route::get('/settings', [AdminSettingsController::class, 'show']);
+            Route::post('/settings', [AdminSettingsController::class, 'update']);
+            Route::apiResource('posts', AdminPostController::class);
+            Route::get('/reviews', [AdminReviewController::class, 'index']);
+            Route::get('/reviews/stats', [AdminReviewController::class, 'stats']);
+            Route::get('/homepage-modules', [HomepageModuleController::class, 'index']);
+            Route::get('/homepage-modules/service-options', [HomepageModuleController::class, 'serviceOptions']);
+            Route::post('/homepage-modules', [HomepageModuleController::class, 'store']);
+            Route::put('/homepage-modules/{module}', [HomepageModuleController::class, 'update']);
+            Route::delete('/homepage-modules/{module}', [HomepageModuleController::class, 'destroy']);
+            Route::post('/homepage-modules/reorder', [HomepageModuleController::class, 'reorder']);
 
             Route::apiResource(
                 'service-categories',
@@ -348,6 +382,12 @@ Route::prefix('v1')->group(function () {
                     CustomerBookingController::class,
                     'show',
                 ]
+            );
+
+
+            Route::post(
+                '/bookings/{booking}/review',
+                [CustomerReviewController::class, 'store']
             );
 
             Route::post(

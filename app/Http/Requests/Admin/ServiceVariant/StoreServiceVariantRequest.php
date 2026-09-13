@@ -31,6 +31,12 @@ class StoreServiceVariantRequest extends FormRequest
                 'string',
             ],
 
+            'thumbnail' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
             'price' => [
                 'required',
                 'numeric',

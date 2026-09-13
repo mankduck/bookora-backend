@@ -102,6 +102,14 @@ class Booking extends Model
         );
     }
 
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(
+            StaffReview::class,
+            'booking_id'
+        );
+    }
+
     public function statusHistories(): HasMany
     {
         return $this->hasMany(

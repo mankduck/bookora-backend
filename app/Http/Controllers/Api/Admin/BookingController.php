@@ -683,6 +683,13 @@ class BookingController extends Controller
 
         $booking->loadMissing('items');
 
+        $previousPrimary = $booking->staffAssignments()
+            ->where(function ($query) {
+                $query->where('is_primary', true)->orWhere('role', 'primary');
+            })
+            ->with('staff.user:id,name')
+            ->first();
+
         $staff = StaffProfile::query()
             ->with([
                 'user:id,name,email,phone,status',
@@ -827,14 +834,40 @@ class BookingController extends Controller
                 'staffAssignments.staff.user:id,name,email,phone',
             ]);
 
-        $notifications->sendToUser(
-            $staff->user_id,
-            'booking_assigned',
-            'Bạn vừa được phân công booking',
-            'Bạn được phân công phụ trách booking ' . $booking->booking_code . '.',
-            'info',
-            $booking
-        );
+        $changedStaff = !$previousPrimary || (int) $previousPrimary->staff_id !== (int) $staff->id;
+
+        if ($changedStaff) {
+            $notifications->sendToUser(
+                $staff->user_id,
+                'booking_assigned',
+                'Bạn vừa được phân công booking',
+                'Bạn được phân công phụ trách booking ' . $booking->booking_code . '.',
+                'info',
+                $booking
+            );
+
+            if ($previousPrimary) {
+                $notifications->sendToCustomer(
+                    $booking,
+                    'booking_staff_changed',
+                    'Nhân viên phụ trách đã được thay đổi',
+                    'Nhân viên phụ trách lịch đặt ' . $booking->booking_code . ' đã được thay đổi từ ' .
+                        ($previousPrimary->staff?->user?->name ?? 'nhân viên trước') . ' sang ' .
+                        ($staff->user?->name ?? 'nhân viên mới') . '.',
+                    'info',
+                    ['staff_id' => $staff->id, 'staff_name' => $staff->user?->name]
+                );
+            } else {
+                $notifications->sendToCustomer(
+                    $booking,
+                    'booking_staff_assigned',
+                    'Đã phân công nhân viên phụ trách',
+                    ($staff->user?->name ?? 'Nhân viên') . ' đã được phân công thực hiện lịch đặt ' . $booking->booking_code . ' của bạn.',
+                    'info',
+                    ['staff_id' => $staff->id, 'staff_name' => $staff->user?->name]
+                );
+            }
+        }
 
         return response()->json([
             'success' => true,

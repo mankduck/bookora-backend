@@ -62,6 +62,14 @@ class StaffProfile extends Model
         );
     }
 
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(
+            StaffReview::class,
+            'staff_id'
+        );
+    }
+
     public function bookingAssignments(): HasMany
     {
         return $this->hasMany(

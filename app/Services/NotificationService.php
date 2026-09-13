@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Events\AppNotificationCreated;
 use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\User;
+use Throwable;
 
 class NotificationService
 {
@@ -22,7 +24,7 @@ class NotificationService
             return null;
         }
 
-        return AppNotification::query()->create([
+        $notification = AppNotification::query()->create([
             'user_id' => $userId,
             'type' => $type,
             'level' => $level,
@@ -32,6 +34,15 @@ class NotificationService
             'url' => $url,
             'data' => $data ?: null,
         ]);
+
+        // DB là nguồn dữ liệu chính. Nếu Reverb tạm ngắt, notification vẫn được lưu.
+        try {
+            AppNotificationCreated::dispatch($notification);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+
+        return $notification;
     }
 
     public function sendToCustomer(
@@ -52,6 +63,21 @@ class NotificationService
             '/account/bookings/' . $booking->id,
             $data
         );
+    }
+
+    public function sendToCustomers(
+        string $type,
+        string $title,
+        ?string $message = null,
+        string $level = 'info',
+        ?string $url = '/',
+        array $data = []
+    ): void {
+        User::query()
+            ->where('status', 'active')
+            ->whereHas('roles', fn ($query) => $query->where('code', 'customer'))
+            ->pluck('id')
+            ->each(fn ($userId) => $this->sendToUser((int) $userId, $type, $title, $message, $level, null, $url, $data));
     }
 
     public function sendToAdmins(

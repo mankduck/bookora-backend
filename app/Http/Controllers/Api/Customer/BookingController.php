@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\StaffReview;
 use App\Services\PaymentProofService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -156,6 +157,18 @@ class BookingController extends Controller
                 $booking
             );
 
+        $primaryAssignment = $booking->staffAssignments
+            ->first(fn ($item) => $item->is_primary || $item->role === 'primary');
+
+        $review = $primaryAssignment
+            ? StaffReview::query()
+                ->where('booking_id', $booking->id)
+                ->where('staff_id', $primaryAssignment->staff_id)
+                ->first()
+            : null;
+
+        $booking->setAttribute('can_review', $booking->status === 'completed' && (bool) $primaryAssignment);
+        $booking->setAttribute('review', $review);
         $booking->setAttribute(
             'bank_transfer',
             $paymentService
