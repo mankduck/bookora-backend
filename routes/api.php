@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\Customer\BookingController as CustomerBookingContro
 use App\Http\Controllers\Api\Customer\PaymentProofController as CustomerPaymentProofController;
 use App\Http\Controllers\Api\Customer\ProfileController as CustomerProfileController;
 use App\Http\Controllers\Api\PaymentProofImageController;
+use App\Http\Controllers\Api\NotificationController;
 
 use App\Http\Controllers\Api\Public\AvailabilityController;
 use App\Http\Controllers\Api\Public\BookingController as PublicBookingController;
@@ -114,6 +115,12 @@ Route::prefix('v1')->group(function () {
         '/payment-proofs/{proof}/image',
         PaymentProofImageController::class
     );
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+        Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
+    });
 
     Route::middleware([
         'auth:sanctum',

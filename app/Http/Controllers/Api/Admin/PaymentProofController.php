@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\PaymentProof;
 use App\Services\PaymentProofService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,8 @@ use Illuminate\Support\Facades\DB;
 class PaymentProofController extends Controller
 {
     public function __construct(
-        private readonly PaymentProofService $paymentProofService
+        private readonly PaymentProofService $paymentProofService,
+        private readonly NotificationService $notifications
     ) {
     }
 
@@ -94,6 +96,14 @@ class PaymentProofController extends Controller
 
         $this->paymentProofService->attachPaymentData(
             $booking
+        );
+
+        $this->notifications->sendToCustomer(
+            $booking,
+            'deposit_approved',
+            'Tiền cọc đã được xác nhận',
+            'Admin đã xác nhận tiền cọc cho ' . $booking->booking_code . '.',
+            'success'
         );
 
         return response()->json([
@@ -195,6 +205,14 @@ class PaymentProofController extends Controller
             $booking
         );
 
+        $this->notifications->sendToCustomer(
+            $booking,
+            'payment_completed',
+            'Thanh toán đã được xác nhận',
+            'Booking ' . $booking->booking_code . ' đã được xác nhận thanh toán đầy đủ.',
+            'success'
+        );
+
         return response()->json([
             'success' => true,
             'message' => 'Đã xác nhận khách thanh toán đầy đủ.',
@@ -211,6 +229,14 @@ class PaymentProofController extends Controller
         $booking = $this->paymentProofService->approve(
             $proof,
             $request->user()
+        );
+
+        $this->notifications->sendToCustomer(
+            $booking,
+            'payment_proof_approved',
+            'Ảnh chuyển khoản đã được xác nhận',
+            'Giao dịch của booking ' . $booking->booking_code . ' đã được admin xác nhận.',
+            'success'
         );
 
         return response()->json([
@@ -238,6 +264,14 @@ class PaymentProofController extends Controller
             $proof,
             $request->user(),
             $data['reason']
+        );
+
+        $this->notifications->sendToCustomer(
+            $booking,
+            'payment_proof_rejected',
+            'Ảnh chuyển khoản chưa được chấp nhận',
+            $data['reason'],
+            'error'
         );
 
         return response()->json([

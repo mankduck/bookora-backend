@@ -5,18 +5,28 @@ namespace App\Http\Controllers\Api\Public;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Public\StoreBookingRequest;
 use App\Services\BookingService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 
 class BookingController extends Controller
 {
     public function store(
         StoreBookingRequest $request,
-        BookingService $bookingService
+        BookingService $bookingService,
+        NotificationService $notifications
     ): JsonResponse {
         $booking =
             $bookingService->create(
                 $request->validated()
             );
+
+        $notifications->sendToAdmins(
+            'booking_created',
+            'Có đơn đặt lịch mới',
+            $booking->customer_name . ' vừa tạo booking ' . $booking->booking_code . '.',
+            'info',
+            $booking
+        );
 
         return response()->json([
             'success' => true,

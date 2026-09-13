@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\PaymentProof;
 use App\Services\PaymentProofService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,8 @@ class PaymentProofController extends Controller
     public function store(
         Request $request,
         Booking $booking,
-        PaymentProofService $paymentService
+        PaymentProofService $paymentService,
+        NotificationService $notifications
     ): JsonResponse {
         $this->assertOwner(
             $request,
@@ -155,6 +157,14 @@ class PaymentProofController extends Controller
             ->attachPaymentData(
                 $booking
             );
+
+        $notifications->sendToAdmins(
+            'payment_proof_uploaded',
+            'Khách vừa gửi ảnh chuyển khoản',
+            $booking->customer_name . ' vừa gửi ảnh chuyển khoản cho ' . $booking->booking_code . '.',
+            'warning',
+            $booking
+        );
 
         return response()->json([
             'success' => true,

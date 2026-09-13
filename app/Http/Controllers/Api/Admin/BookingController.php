@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\BookingStaff;
 use App\Models\StaffProfile;
 use App\Services\PaymentProofService;
+use App\Services\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -138,7 +139,8 @@ class BookingController extends Controller
 
     public function show(
         Booking $booking,
-        PaymentProofService $paymentService
+        PaymentProofService $paymentService,
+        NotificationService $notifications
     ): JsonResponse {
         $booking->load([
             'items',
@@ -163,7 +165,8 @@ class BookingController extends Controller
     public function confirm(
         Request $request,
         Booking $booking,
-        PaymentProofService $paymentService
+        PaymentProofService $paymentService,
+        NotificationService $notifications
     ): JsonResponse {
         if ($booking->status === 'cancelled') {
             return response()->json([
@@ -302,6 +305,14 @@ class BookingController extends Controller
                 $booking
             );
 
+        $notifications->sendToCustomer(
+            $booking,
+            'booking_confirmed',
+            'Lịch đặt đã được xác nhận',
+            'Booking ' . $booking->booking_code . ' đã được admin xác nhận.',
+            'success'
+        );
+
         return response()->json([
             'success' => true,
             'message' =>
@@ -316,7 +327,8 @@ class BookingController extends Controller
     public function updateStatus(
         Request $request,
         Booking $booking,
-        PaymentProofService $paymentService
+        PaymentProofService $paymentService,
+        NotificationService $notifications
     ): JsonResponse {
         $data = $request->validate([
             'status' => [
@@ -337,7 +349,8 @@ class BookingController extends Controller
             return $this->confirm(
                 $request,
                 $booking,
-                $paymentService
+                $paymentService,
+                $notifications
             );
         }
 
@@ -469,6 +482,24 @@ class BookingController extends Controller
             ->attachPaymentData(
                 $booking
             );
+
+        $statusMessages = [
+            'in_progress' => ['Dịch vụ đang được thực hiện', 'Booking của bạn đã chuyển sang trạng thái đang thực hiện.', 'info'],
+            'completed' => ['Booking đã hoàn thành', 'Cảm ơn bạn đã sử dụng dịch vụ Bookora.', 'success'],
+            'cancelled' => ['Booking đã bị huỷ', $data['reason'] ?? 'Booking đã được admin huỷ.', 'error'],
+            'no_show' => ['Booking được đánh dấu không đến', 'Booking đã được cập nhật trạng thái khách không đến.', 'warning'],
+        ];
+
+        if (isset($statusMessages[$target])) {
+            [$title, $message, $level] = $statusMessages[$target];
+            $notifications->sendToCustomer(
+                $booking,
+                'booking_' . $target,
+                $title,
+                $message,
+                $level
+            );
+        }
 
         return response()->json([
             'success' => true,
@@ -623,7 +654,8 @@ class BookingController extends Controller
 
     public function assignPrimary(
         Request $request,
-        Booking $booking
+        Booking $booking,
+        NotificationService $notifications
     ): JsonResponse {
         $validated = $request->validate([
             'staff_id' => [
@@ -794,6 +826,15 @@ class BookingController extends Controller
                 'coupon:id,code,name,type,value',
                 'staffAssignments.staff.user:id,name,email,phone',
             ]);
+
+        $notifications->sendToUser(
+            $staff->user_id,
+            'booking_assigned',
+            'Bạn vừa được phân công booking',
+            'Bạn được phân công phụ trách booking ' . $booking->booking_code . '.',
+            'info',
+            $booking
+        );
 
         return response()->json([
             'success' => true,
